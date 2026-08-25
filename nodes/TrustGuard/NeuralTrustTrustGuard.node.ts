@@ -116,7 +116,8 @@ async function evaluateItem(
 		consumerId: options.consumerId,
 	});
 
-	let verdict: TrustGuardVerdict;
+	let verdict: TrustGuardVerdict | undefined;
+	let failure: unknown;
 	try {
 		verdict = await evaluateWithSender(
 			createN8nSender(ctx, {
@@ -126,12 +127,16 @@ async function evaluateItem(
 			}),
 		);
 	} catch (error) {
-		if (error instanceof TrustGuardUnreachableError && options.failOpenOnUnreachable) {
+		failure = error;
+	}
+
+	if (!verdict) {
+		if (failure instanceof TrustGuardUnreachableError && options.failOpenOnUnreachable) {
 			// Handled here rather than in execute() so the item keeps the output
 			// contract every Allow item is expected to satisfy.
 			const json = attachMetadata(ctx, item.json, {
 				status: 'allow',
-				error: error.message,
+				error: failure.message,
 				unreachable: true,
 				evaluated: false,
 			});
@@ -141,10 +146,9 @@ async function evaluateItem(
 			}
 			return { index: OUTPUT_ALLOW, data: { json, pairedItem: { item: itemIndex } } };
 		}
-		// Rethrown as-is on purpose: execute() maps the typed TrustGuard errors to
-		// NodeApiError / NodeOperationError in one place.
-		// eslint-disable-next-line @n8n/community-nodes/require-node-api-error
-		throw error;
+		// execute() maps the typed TrustGuard errors to NodeApiError /
+		// NodeOperationError in one place.
+		throw failure;
 	}
 
 	let outgoingMessages = messages;
