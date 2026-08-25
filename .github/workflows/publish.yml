@@ -1,0 +1,52 @@
+# Publishes to npm on a version tag, with a provenance attestation.
+#
+# n8n requires community nodes to be published from GitHub Actions with npm
+# provenance. Authentication is either npm Trusted Publishing via OIDC (leave
+# NPM_TOKEN unset) or an automation token in the NPM_TOKEN secret. Provenance
+# works with both.
+#
+# Release with `npm run release`, which bumps the version, tags, and pushes.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      # 0.1.0, 1.2.3, 2.0.0-rc.1. Use 'v*.*.*' for a v-prefixed convention.
+      - '*.*.*'
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to mint an OIDC token for npm provenance attestation.
+      id-token: write
+      # Scoped down from the default (write) for least-privilege publishing.
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: 'npm ci'
+
+      # OIDC trusted publishing needs a newer npm than the Node runtime bundles.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - name: Release
+        # Writes the token to .npmrc only when one is set; otherwise npm falls
+        # back to the OIDC exchange.
+        run: |
+          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          npm run release
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

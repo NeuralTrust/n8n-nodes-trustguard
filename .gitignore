@@ -1,0 +1,10 @@
+dist
+node_modules
+.env
+.env.*
+!.env.example
+.creds.json
+*.tsbuildinfo
+.DS_Store
+examples/workflow-ids.json
+.vscode

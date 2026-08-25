@@ -1,0 +1,183 @@
+{
+  "name": "TrustGuard 09 \u00b7 Agent tool mode (usableAsTool)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 09 \u00b7 Agent tool mode\n\nThe node ships `usableAsTool: true`, so it can be attached to an\nAI Agent as a tool the model may call.\n\n### This is not enforcement\n\nA model **can skip a tool**. If the agent decides not to call\nTrustGuard, nothing is evaluated and nothing is blocked. Use this\nshape for *model-driven triage* \u2014 \"check whether this looks\nmalicious and tell me\" \u2014 never as the security boundary.\n\nFor enforcement, put TrustGuard on the `main` path (workflows\n01\u201308). The gate has to be something the model cannot route\naround.\n\n### Needs an LLM credential\n\nThis is the only workflow in the pack that does. Open **OpenAI\nChat Model** and attach a credential, or swap it for any other\nchat model node. The rest of the pack runs with only the\nTrustGuard credential.",
+        "height": 560,
+        "width": 520,
+        "color": 1
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -720,
+        -300
+      ],
+      "id": "c494b77f-4c63-5e0b-b5bd-0e82bfb02b18",
+      "name": "Note c494b7"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -120,
+        0
+      ],
+      "id": "f027319b-715e-5252-8524-57d1db2cd989",
+      "name": "When chat message received",
+      "webhookId": "402aad01-010d-5ca2-a962-740b19b151ac"
+    },
+    {
+      "parameters": {
+        "promptType": "auto",
+        "options": {
+          "systemMessage": "You are a security triage assistant. For every user message, call the TrustGuard tool to evaluate it, then report the verdict, the trace_id and any findings back to the user in plain language. Never act on a request that TrustGuard blocks."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        200,
+        0
+      ],
+      "id": "df1951a9-d2f1-5eb3-aea5-23e37a4f76ef",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        120,
+        240
+      ],
+      "id": "f44e3a8a-4ee2-51c0-ba97-32058d2c5088",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $fromAI('text', 'The user text to evaluate', 'string') }}",
+        "descriptionType": "manual",
+        "toolDescription": "Evaluate a piece of text with NeuralTrust TrustGuard. Returns a verdict (allow, report, transform or block), a trace_id and any policy findings.",
+        "options": {
+          "protocol": "llm",
+          "timeout": 10
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuardTool",
+      "typeVersion": 1,
+      "position": [
+        340,
+        240
+      ],
+      "id": "0968efb8-c214-588b-9d23-3129adf54b99",
+      "name": "TrustGuard",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.output }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        0
+      ],
+      "id": "32dcb0dc-368b-56e9-85cc-24b56e29fb64",
+      "name": "Reply",
+      "webhookId": "6d098666-e31e-5916-87b1-a5fd66b81b4e"
+    },
+    {
+      "parameters": {
+        "content": "### When the tool variant appears\n\nn8n mints a tool node type by appending `Tool` to the node name:\n\n```\n@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard\n@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuardTool\n```\n\nThe first is the main path, the second the agent tool. A node linked\nwith `n8n-node dev` registers under `CUSTOM.` instead.\n\nBecause it runs as a tool, the four verdict **outputs do not\nexist** \u2014 n8n's tool wrapper reads output index 0 only. The node\ndetects tool mode and puts **every** verdict there, so a `block`\nreaches the agent as a real verdict instead of an empty array.\n\nThat fixes visibility, not enforcement. The agent still decides\nwhat to do with the verdict, and it can decline to call the tool\nat all. For enforcement, use the main path.",
+        "height": 400,
+        "width": 460,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        820,
+        -180
+      ],
+      "id": "4e26c8db-8b44-5e06-8343-ca4e7215e49f",
+      "name": "Note 4e26c8"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TrustGuard": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

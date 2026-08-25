@@ -1,0 +1,213 @@
+{
+  "name": "TrustGuard 05 \u00b7 Options matrix \u2014 every option, every protocol",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 05 \u00b7 Options matrix\n\nOne node, **every option in the collection set at once**, driven\nper-item by expressions. Four items fan the same prompt across the\nfour `protocol` values.\n\n| Option | Sent as | Notes |\n| --- | --- | --- |\n| Collector Key | `collector_key` | overrides the credential; routing id, **not** a secret |\n| Consumer ID | `consumer_id` | end-user attribution |\n| Session ID | `session_id` | multi-turn correlation |\n| Model Name | `attributes.model.name` | gate matching |\n| Model Provider | `attributes.model.provider` | omitted when blank |\n| Protocol | `protocol` | `llm` is correct for chat |\n| Timeout | \u2014 | HTTP timeout, 1\u201360s, default 5 |\n| Fail Open on Unreachable | \u2014 | see workflow 08 |\n\n### Never sent\n\n`workflowId`, `workflowName` and `executionId` are output-only.\nUnknown top-level keys make `/v1/evaluate` return 400.\n\n### Why the Merge node is here\n\nWiring four outputs straight into one node makes n8n execute that\nnode **once per output**, so a \"total\" would be computed per branch.\nMerge in append mode collects all four into one stream, so\n`Summarize Matrix` runs exactly once over the whole batch.",
+        "height": 760,
+        "width": 540,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -380
+      ],
+      "id": "a54b8b89-33eb-5b4e-b4d4-8c62835acd61",
+      "name": "Note a54b8b"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        0
+      ],
+      "id": "0873245b-b0ac-5a2e-9bd2-7f836ec5f491",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Same prompt, four protocols, distinct attribution per item.\nconst prompt = 'Look up jane.doe@example.com and charge card 4111 1111 1111 1111.';\nreturn ['llm', 'all', 'mcp', 'a2a'].map((protocol, i) => ({\n  json: {\n    protocol,\n    prompt,\n    sessionId: `matrix-session-${protocol}`,\n    consumerId: `matrix-consumer-${i + 1}`,\n    modelName: ['gpt-4o-mini', 'claude-sonnet-5', 'llama-3.3-70b', 'mistral-large'][i],\n    modelProvider: ['openai', 'anthropic', 'meta', 'mistral'][i],\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        0
+      ],
+      "id": "024b03fc-252f-519d-bc02-24722778c1cb",
+      "name": "Protocol Cases"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "collectorKey": "",
+          "consumerId": "={{ $json.consumerId }}",
+          "failOpenOnUnreachable": false,
+          "modelName": "={{ $json.modelName }}",
+          "modelProvider": "={{ $json.modelProvider }}",
+          "protocol": "={{ $json.protocol }}",
+          "sessionId": "={{ $json.sessionId }}",
+          "timeout": 20
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        360,
+        0
+      ],
+      "id": "01aedb63-bb25-5c34-9479-b657264c8634",
+      "name": "Evaluate \u00b7 All Options",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "all 8 options set",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 4,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        660,
+        -60
+      ],
+      "id": "f8279e66-5a67-58da-912e-eef836dca0cc",
+      "name": "Merge Verdicts"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Runs ONCE over all four branches because Merge combined them.\nconst rows = $input.all().map(i => {\n  const tg = i.json.trustguard ?? {};\n  return {\n    protocol: i.json.protocol,\n    model: `${i.json.modelName} / ${i.json.modelProvider}`,\n    status: tg.status ?? 'ERRORED',\n    trace_id: tg.trace_id ?? null,\n    findings: Array.isArray(tg.findings) ? tg.findings.length : 0,\n    text_out: i.json.guardrailsInput ?? null,\n  };\n});\nreturn rows.map(json => ({ json }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        -60
+      ],
+      "id": "5021f56f-ab97-55ba-906f-5d366ce5ac6b",
+      "name": "Summarize Matrix"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 4 \u2014 the error output. `mcp` rejects a plain chat array with\n// HTTP 400, which is not fail-open eligible.\nreturn $input.all().map(i => ({\n  json: {\n    protocol: i.json.protocol,\n    outcome: 'rejected by the API \u2014 payload shape does not match the protocol',\n    error: i.json.error ?? 'TrustGuard request failed',\n    fix: 'Send llm for chat payloads. Use mcp only with a JSON-RPC envelope.',\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        240
+      ],
+      "id": "cb511e39-1894-5026-807f-7ada096aa30d",
+      "name": "Protocol Rejected (400)"
+    },
+    {
+      "parameters": {
+        "content": "### What to look for\n\n**Summarize Matrix** gets `llm`, `all` and `a2a` \u2014 three rows, one\nexecution. **Protocol Rejected** gets `mcp`.\n\n`protocol` is not a free-text label. The API validates the payload\n*against* it:\n\n- `llm` / `all` / `a2a` accept a plain `messages` array\n- `mcp` demands a JSON-RPC envelope, or messages carrying tools,\n  and returns **HTTP 400** otherwise\n\nHTTP 400 is never fail-open eligible, so the node fails closed on\nthat item. Use `llm` for chat workflows.\n\n`Collector Key` is deliberately left **blank**: blank means \"fall\nback to the key on the credential\". Fill it in only when one\ncredential must reach several collectors.",
+        "height": 480,
+        "width": 460,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        -240
+      ],
+      "id": "b78c9938-4a14-57b2-bf40-6a39adada4b0",
+      "name": "Note b78c99"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Protocol Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Protocol Cases": {
+      "main": [
+        [
+          {
+            "node": "Evaluate \u00b7 All Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate \u00b7 All Options": {
+      "main": [
+        [
+          {
+            "node": "Merge Verdicts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Verdicts",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Merge Verdicts",
+            "type": "main",
+            "index": 2
+          }
+        ],
+        [
+          {
+            "node": "Merge Verdicts",
+            "type": "main",
+            "index": 3
+          }
+        ],
+        [
+          {
+            "node": "Protocol Rejected (400)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Verdicts": {
+      "main": [
+        [
+          {
+            "node": "Summarize Matrix",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

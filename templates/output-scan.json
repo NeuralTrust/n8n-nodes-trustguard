@@ -1,0 +1,181 @@
+{
+	"name": "NeuralTrust TrustGuard — Output scan",
+	"meta": {
+		"description": "Evaluate the AI Agent response with TrustGuard. Block returns a templated refusal. Transform replaces the model output with the redacted payload.",
+		"templateCredsSetupCompleted": false
+	},
+	"nodes": [
+		{
+			"id": "note-overview",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [180, 80],
+			"parameters": {
+				"content": "## Output scan\n\nPair this with the chat input gate. Post-LLM evaluation sees assembled text only — there is no token-level redaction.\n\n- `block` → templated refusal that includes `trace_id`\n- `transform` → replace `output` with the rewritten text\n- `allow` / `report` → continue\n\nAttach Header Auth (`Authorization: Bearer tgk_…`). Never embed keys in the JSON.",
+				"width": 400,
+				"height": 340,
+				"color": 5
+			}
+		},
+		{
+			"id": "chat-trigger",
+			"name": "Chat Trigger",
+			"type": "@n8n/n8n-nodes-langchain.chatTrigger",
+			"typeVersion": 1.1,
+			"position": [680, 300],
+			"webhookId": "trustguard-output-scan",
+			"parameters": {
+				"options": {}
+			}
+		},
+		{
+			"id": "ai-agent",
+			"name": "AI Agent",
+			"type": "@n8n/n8n-nodes-langchain.agent",
+			"typeVersion": 1.8,
+			"position": [920, 300],
+			"parameters": {
+				"promptType": "auto",
+				"options": {}
+			}
+		},
+		{
+			"id": "evaluate-output",
+			"name": "Evaluate Output",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [1160, 300],
+			"parameters": {
+				"method": "POST",
+				"url": "https://trustguard.neuraltrust.ai/v1/evaluate",
+				"authentication": "genericCredentialType",
+				"genericAuthType": "httpHeaderAuth",
+				"sendBody": true,
+				"specifyBody": "json",
+				"jsonBody": "={\n  \"payload\": {\n    \"messages\": [\n      { \"role\": \"assistant\", \"content\": {{ JSON.stringify($json.output) }} }\n    ]\n  },\n  \"direction\": \"output\",\n  \"protocol\": \"llm\",\n  \"attributes\": {\n    \"content_type\": \"application/json\",\n    \"model\": { \"name\": \"\" }\n  },\n  \"session_id\": {{ JSON.stringify($('Chat Trigger').item.json.sessionId || '') }}\n}",
+				"options": {
+					"timeout": 5000
+				}
+			}
+		},
+		{
+			"id": "switch-status",
+			"name": "Verdict",
+			"type": "n8n-nodes-base.switch",
+			"typeVersion": 3.2,
+			"position": [1400, 300],
+			"parameters": {
+				"rules": {
+					"values": [
+						{
+							"outputKey": "Block",
+							"renameOutput": true,
+							"conditions": {
+								"combinator": "and",
+								"options": {
+									"caseSensitive": true,
+									"leftValue": "",
+									"typeValidation": "strict",
+									"version": 2
+								},
+								"conditions": [
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									}
+								]
+							}
+						},
+						{
+							"outputKey": "Transform",
+							"renameOutput": true,
+							"conditions": {
+								"combinator": "and",
+								"options": {
+									"caseSensitive": true,
+									"leftValue": "",
+									"typeValidation": "strict",
+									"version": 2
+								},
+								"conditions": [
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "transform",
+										"operator": { "type": "string", "operation": "equals" }
+									}
+								]
+							}
+						}
+					]
+				},
+				"options": {
+					"fallbackOutput": "extra"
+				}
+			}
+		},
+		{
+			"id": "refuse",
+			"name": "Templated Refusal",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [1660, 120],
+			"parameters": {
+				"assignments": {
+					"assignments": [
+						{
+							"id": "output",
+							"name": "output",
+							"type": "string",
+							"value": "=I cannot return that response. Blocked by NeuralTrust TrustGuard. trace_id={{ $json.trace_id }}"
+						}
+					]
+				},
+				"options": {}
+			}
+		},
+		{
+			"id": "redact",
+			"name": "Apply Transform",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [1660, 300],
+			"parameters": {
+				"assignments": {
+					"assignments": [
+						{
+							"id": "output",
+							"name": "output",
+							"type": "string",
+							"value": "={{ $json.transformed_payload.messages[0].content || $json.transformed_payload.input }}"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Chat Trigger": {
+			"main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+		},
+		"AI Agent": {
+			"main": [[{ "node": "Evaluate Output", "type": "main", "index": 0 }]]
+		},
+		"Evaluate Output": {
+			"main": [[{ "node": "Verdict", "type": "main", "index": 0 }]]
+		},
+		"Verdict": {
+			"main": [
+				[{ "node": "Templated Refusal", "type": "main", "index": 0 }],
+				[{ "node": "Apply Transform", "type": "main", "index": 0 }]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}

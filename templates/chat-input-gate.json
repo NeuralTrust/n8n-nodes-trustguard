@@ -1,0 +1,219 @@
+{
+	"name": "NeuralTrust TrustGuard — Chat input gate",
+	"meta": {
+		"description": "Evaluate Chat Trigger input with TrustGuard before the AI Agent. Block returns a safe reply. Transform forwards the rewritten text.",
+		"templateCredsSetupCompleted": false
+	},
+	"nodes": [
+		{
+			"id": "note-overview",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [180, 80],
+			"parameters": {
+				"content": "## NeuralTrust TrustGuard chat input gate\n\nBuilt from built-in nodes only, so it needs no community node.\n\n1. Create a Header Auth credential sending `Authorization: Bearer tgk_…`.\n2. Attach it to **Evaluate Input**.\n3. Optional: set `collector_key` in the HTTP body if the key is not already bound to a collector.\n\nDo not paste API keys into this workflow. Detection verdicts return HTTP 200 — the Switch on `status` is the enforcement.",
+				"width": 420,
+				"height": 360,
+				"color": 5
+			}
+		},
+		{
+			"id": "chat-trigger",
+			"name": "Chat Trigger",
+			"type": "@n8n/n8n-nodes-langchain.chatTrigger",
+			"typeVersion": 1.1,
+			"position": [680, 280],
+			"webhookId": "trustguard-chat-input-gate",
+			"parameters": {
+				"options": {}
+			}
+		},
+		{
+			"id": "evaluate-input",
+			"name": "Evaluate Input",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [920, 280],
+			"parameters": {
+				"method": "POST",
+				"url": "https://trustguard.neuraltrust.ai/v1/evaluate",
+				"authentication": "genericCredentialType",
+				"genericAuthType": "httpHeaderAuth",
+				"sendBody": true,
+				"specifyBody": "json",
+				"jsonBody": "={\n  \"payload\": {\n    \"messages\": [\n      { \"role\": \"user\", \"content\": {{ JSON.stringify($json.chatInput) }} }\n    ]\n  },\n  \"direction\": \"input\",\n  \"protocol\": \"llm\",\n  \"attributes\": {\n    \"content_type\": \"application/json\",\n    \"model\": { \"name\": \"\" }\n  },\n  \"session_id\": {{ JSON.stringify($json.sessionId || '') }}\n}",
+				"options": {
+					"timeout": 5000
+				}
+			}
+		},
+		{
+			"id": "switch-status",
+			"name": "Verdict",
+			"type": "n8n-nodes-base.switch",
+			"typeVersion": 3.2,
+			"position": [1160, 280],
+			"parameters": {
+				"rules": {
+					"values": [
+						{
+							"outputKey": "Block",
+							"renameOutput": true,
+							"conditions": {
+								"combinator": "and",
+								"options": {
+									"caseSensitive": true,
+									"leftValue": "",
+									"typeValidation": "strict",
+									"version": 2
+								},
+								"conditions": [
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									}
+								]
+							}
+						},
+						{
+							"outputKey": "Transform",
+							"renameOutput": true,
+							"conditions": {
+								"combinator": "and",
+								"options": {
+									"caseSensitive": true,
+									"leftValue": "",
+									"typeValidation": "strict",
+									"version": 2
+								},
+								"conditions": [
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "transform",
+										"operator": { "type": "string", "operation": "equals" }
+									}
+								]
+							}
+						}
+					]
+				},
+				"looseTypeValidation": false,
+				"options": {
+					"fallbackOutput": "extra"
+				}
+			}
+		},
+		{
+			"id": "safe-reply",
+			"name": "Safe Reply",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [1420, 80],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "output",
+							"name": "output",
+							"type": "string",
+							"value": "=Blocked by NeuralTrust TrustGuard. trace_id={{ $json.trace_id }}"
+						}
+					]
+				},
+				"options": {}
+			}
+		},
+		{
+			"id": "use-transform",
+			"name": "Use Transformed Text",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [1420, 280],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "chatInput",
+							"name": "chatInput",
+							"type": "string",
+							"value": "={{ $json.transformed_payload.messages[0].content || $json.transformed_payload.input }}"
+						},
+						{
+							"id": "guardrailsInput",
+							"name": "guardrailsInput",
+							"type": "string",
+							"value": "={{ $json.transformed_payload.messages[0].content || $json.transformed_payload.input }}"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "keep-original",
+			"name": "Keep Original Text",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [1420, 480],
+			"parameters": {
+				"mode": "manual",
+				"duplicateItem": false,
+				"assignments": {
+					"assignments": [
+						{
+							"id": "guardrailsInput",
+							"name": "guardrailsInput",
+							"type": "string",
+							"value": "={{ $('Chat Trigger').item.json.chatInput }}"
+						}
+					]
+				},
+				"includeOtherFields": true,
+				"options": {}
+			}
+		},
+		{
+			"id": "ai-agent",
+			"name": "AI Agent",
+			"type": "@n8n/n8n-nodes-langchain.agent",
+			"typeVersion": 1.8,
+			"position": [1680, 380],
+			"parameters": {
+				"promptType": "auto",
+				"options": {}
+			}
+		}
+	],
+	"connections": {
+		"Chat Trigger": {
+			"main": [[{ "node": "Evaluate Input", "type": "main", "index": 0 }]]
+		},
+		"Evaluate Input": {
+			"main": [[{ "node": "Verdict", "type": "main", "index": 0 }]]
+		},
+		"Verdict": {
+			"main": [
+				[{ "node": "Safe Reply", "type": "main", "index": 0 }],
+				[{ "node": "Use Transformed Text", "type": "main", "index": 0 }],
+				[{ "node": "Keep Original Text", "type": "main", "index": 0 }]
+			]
+		},
+		"Use Transformed Text": {
+			"main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+		},
+		"Keep Original Text": {
+			"main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}

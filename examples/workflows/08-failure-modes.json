@@ -1,0 +1,362 @@
+{
+  "name": "TrustGuard 08 \u00b7 Failure modes \u2014 fail closed vs fail open",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 08 \u00b7 Failure modes\n\n**Default is fail closed.**\n\nThree branches, same prompt, three different failures.\n\n| Branch | Credential points at | Fail Open |\n| --- | --- | --- |\n| Fail Closed | `127.0.0.1:9` (refused) | off |\n| Fail Open | `127.0.0.1:9` (refused) | **on** |\n| TLS Never Fails Open | a host with a bad certificate | **on** |\n\nFail-open is scoped to *unreachable*, not to anything that went\nwrong. A TLS failure could be a MITM, so it fails closed even with\nthe option enabled.\n\n### The policy\n\n| Failure | Fail-open eligible? |\n| --- | --- |\n| Timeout / connect refused / DNS | **yes** |\n| HTTP 502 / 504 after retries | **yes** |\n| HTTP 429 after 3 attempts | **yes** |\n| HTTP 401 / 403 | never |\n| HTTP 503 (entitlements) | never |\n| Other 4xx / 5xx | never |\n| TLS / certificate error | never |\n| Non-JSON 200, unknown status | never |\n| Unusable `transformed_payload` | never |\n| `status: block` | not a failure \u2014 it is a branch |\n\n### Retries\n`{429, 502, 504}` \u2192 3 attempts total. Honors `Retry-After` capped at\n5s, else 0.25s / 0.5s / 1.0s capped at 2s. TLS errors never retry.",
+        "height": 900,
+        "width": 560,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -840,
+        -460
+      ],
+      "id": "8cfc1aa5-1a93-55e8-984b-32bf0e1831e3",
+      "name": "Note 8cfc1a"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        0
+      ],
+      "id": "7597a442-d65a-50da-a7e2-5ce3054b94a6",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e304a74-64d5-52f5-9a50-5b5b55eab3b4",
+              "name": "prompt",
+              "type": "string",
+              "value": "What is the capital of France?"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        40,
+        0
+      ],
+      "id": "baac87ae-5452-55bd-8644-03c4bf4c7abe",
+      "name": "Probe Text"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 3,
+          "failOpenOnUnreachable": false
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        340,
+        -260
+      ],
+      "id": "cf8aa665-145f-54a1-8940-c1c421ebfaed",
+      "name": "Fail Closed (default)",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard (unreachable)"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "failOpenOnUnreachable = false",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        680,
+        -380
+      ],
+      "id": "a92945f1-8686-5638-94ca-53295e8f6ee7",
+      "name": "Never Reached \u00b7 Closed"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 4 \u2014 the error output.\n// Expect: \"TrustGuard guardrail service unreachable\".\n// Nothing reaches Allow. Nothing proceeded unevaluated.\nreturn $input.all().map(i => ({\n  json: {\n    branch: 'fail-closed',\n    outcome: 'stopped \u2014 item routed to the error output',\n    error: i.json.error,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -220
+      ],
+      "id": "ee584fe3-0449-51cd-8c26-3c3a727bd148",
+      "name": "Captured Error"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 3,
+          "failOpenOnUnreachable": true
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        340,
+        20
+      ],
+      "id": "2b2ddb84-fa87-56e9-b146-d3b9a1c1d4be",
+      "name": "Fail Open on Unreachable",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard (unreachable)"
+        }
+      },
+      "notes": "failOpenOnUnreachable = true",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fail-open puts the item on ALLOW with a marker.\n// trustguard.unreachable === true means \"nobody checked this\".\n// Alert on it. Do not treat it as a clean allow.\nreturn $input.all().map(i => ({\n  json: {\n    branch: 'fail-open',\n    outcome: 'continued on Allow WITHOUT evaluation',\n    status: i.json.trustguard?.status,\n    unreachable: i.json.trustguard?.unreachable,\n    error: i.json.trustguard?.error,\n    trace_id: i.json.trustguard?.trace_id ?? null,\n    warning: 'Traffic proceeded unevaluated. This is the trade-off you opted into.',\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        -40
+      ],
+      "id": "286c7dd3-3d82-58af-bb54-3b251b7e1ab0",
+      "name": "Continued Unevaluated"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        680,
+        100
+      ],
+      "id": "ff2bb712-222c-56a1-b0c4-488798c88a44",
+      "name": "Unused \u00b7 Report"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        680,
+        180
+      ],
+      "id": "0c6eba16-8aca-5fe1-9cad-2f03e5cc1fd8",
+      "name": "Unused \u00b7 Transform"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        680,
+        260
+      ],
+      "id": "f631b5b3-a4e3-5631-8956-b57bc4f9e6ae",
+      "name": "Unused \u00b7 Block"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.prompt }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 5,
+          "failOpenOnUnreachable": true
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        340,
+        400
+      ],
+      "id": "7f6e8cb1-3d5d-5771-8cfb-522472160e17",
+      "name": "TLS Never Fails Open",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard (TLS error)"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "failOpenOnUnreachable = true, and still closed",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        680,
+        340
+      ],
+      "id": "483baa4b-978d-5a75-b2af-cbfc1f37d241",
+      "name": "Never Reached \u00b7 TLS"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fail-open is ON for this node and it STILL failed closed.\n// mapTransportError classifies ssl / tls / certificate failures as a\n// request error, never as \"unreachable\" \u2014 a MITM must not look like a\n// transient blip. Expect: \"TrustGuard request failed\".\nreturn $input.all().map(i => ({\n  json: {\n    branch: 'tls-with-fail-open-enabled',\n    outcome: 'still failed closed \u2014 TLS is never fail-open eligible',\n    error: i.json.error,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        480
+      ],
+      "id": "fd96eb97-8655-589e-bace-444d100a7572",
+      "name": "TLS Failed Closed"
+    },
+    {
+      "parameters": {
+        "content": "### Expected result\n\n**Fail Closed** \u2192 `Never Reached \u00b7 Closed` is empty, one item on\n`Captured Error` reading *TrustGuard guardrail service unreachable*.\n\n**Fail Open** \u2192 one item on `Continued Unevaluated` with\n`unreachable: true` and **no trace_id**. That missing `trace_id` is\nthe tell: there is no evaluation record in the NeuralTrust console,\nbecause no evaluation happened.\n\n**TLS Never Fails Open** \u2192 `Never Reached \u00b7 TLS` is empty and one\nitem lands on `TLS Failed Closed` reading *TrustGuard request\nfailed* \u2014 even though fail-open is switched on for that node.\n\n### If Never Reached is NOT empty\n\nAn item on either Never Reached branch means a failed evaluation\nreached the Allow output, which the node must never do.",
+        "height": 560,
+        "width": 480,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        -180
+      ],
+      "id": "90275bfc-e4ca-5ec1-b693-26c594f03150",
+      "name": "Note 90275b"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Probe Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Text": {
+      "main": [
+        [
+          {
+            "node": "Fail Closed (default)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fail Open on Unreachable",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TLS Never Fails Open",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fail Closed (default)": {
+      "main": [
+        [
+          {
+            "node": "Never Reached \u00b7 Closed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [],
+        [
+          {
+            "node": "Captured Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fail Open on Unreachable": {
+      "main": [
+        [
+          {
+            "node": "Continued Unevaluated",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unused \u00b7 Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unused \u00b7 Transform",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unused \u00b7 Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLS Never Fails Open": {
+      "main": [
+        [
+          {
+            "node": "Never Reached \u00b7 TLS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [],
+        [
+          {
+            "node": "TLS Failed Closed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

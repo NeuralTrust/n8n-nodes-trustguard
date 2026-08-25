@@ -1,0 +1,224 @@
+{
+  "name": "TrustGuard 06 \u00b7 Transform deep dive \u2014 what DLP actually rewrites",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 06 \u00b7 Transform deep dive\n\n`status: transform` is the interesting verdict: the request is\nallowed to proceed, but **not as written**.\n\n### What the node rewrites\n\n| Field | On transform |\n| --- | --- |\n| `guardrailsInput` | the rewritten text (always) |\n| `chatInput` | rewritten \u2014 **only** on `direction=input`, only if the key already existed |\n| `output` | rewritten \u2014 **only** on `direction=output` |\n| `messages` | rewritten array \u2014 messages mode only |\n\nThat `chatInput` rewrite is the whole point: a downstream AI Agent\nin `auto` prompt mode reads `chatInput`, so the agent sees the\nredacted text without any rewiring.\n\n### Try\n`Summarize my latest mails, my mail is jane.doe@example.com`\n\n`Diff` shows the original trigger text next to the rewritten one.",
+        "height": 560,
+        "width": 520,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -740,
+        -300
+      ],
+      "id": "a513775d-b931-5f4c-b94e-30be91527ec8",
+      "name": "Note a51377"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -140,
+        0
+      ],
+      "id": "0a83ac81-e395-5228-876e-b08b615a3fa2",
+      "name": "When chat message received",
+      "webhookId": "f9298267-80e2-572e-9cc1-accc107b8f2c"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 10,
+          "sessionId": "={{ $json.sessionId }}"
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        140,
+        0
+      ],
+      "id": "df57c87f-b8f4-5a0c-95c9-448638b2b892",
+      "name": "TrustGuard",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3dda65c9-fa06-5886-9820-7eae4dc2a343",
+              "name": "original",
+              "type": "string",
+              "value": "={{ $('When chat message received').item.json.chatInput }}"
+            },
+            {
+              "id": "7fdddc33-9832-52d2-942d-a40d03f6223f",
+              "name": "rewritten",
+              "type": "string",
+              "value": "={{ $json.guardrailsInput }}"
+            },
+            {
+              "id": "ca4f4e1e-4a69-5094-984e-3f136086e2de",
+              "name": "chatInput_after",
+              "type": "string",
+              "value": "={{ $json.chatInput }}"
+            },
+            {
+              "id": "10a16319-7ba5-53ce-bda1-7e118f7943c5",
+              "name": "changed",
+              "type": "boolean",
+              "value": "={{ $('When chat message received').item.json.chatInput !== $json.guardrailsInput }}"
+            },
+            {
+              "id": "05b08a12-f386-52b4-b9c3-43988bdba017",
+              "name": "trace_id",
+              "type": "string",
+              "value": "={{ $json.trustguard.trace_id }}"
+            },
+            {
+              "id": "92395a65-4966-506c-83fe-7eb481e4b139",
+              "name": "findings_json",
+              "type": "string",
+              "value": "={{ JSON.stringify($json.trustguard.findings) }}"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        60
+      ],
+      "id": "9d289319-a210-566e-8a6e-28360b95b1be",
+      "name": "Diff"
+    },
+    {
+      "parameters": {
+        "message": "=TRANSFORM \u00b7 trace `{{ $json.trace_id }}`\n\n**Before**\n{{ $json.original }}\n\n**After**\n{{ $json.rewritten }}\n\n`chatInput` now: {{ $json.chatInput_after }}\nchanged: {{ $json.changed }}\n\nFindings: {{ $json.findings_json }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        740,
+        60
+      ],
+      "id": "8be6d906-f34d-5ef3-b3cd-f0f76afa6d79",
+      "name": "Reply \u00b7 Transform diff",
+      "webhookId": "9b6082b5-86c7-5610-a37d-72530d5c3e34"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.trustguard.status.toUpperCase() }} \u00b7 trace `{{ $json.trustguard.trace_id }}`\n\nNothing was rewritten. guardrailsInput is identical to the input:\n\n{{ $json.guardrailsInput }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        440,
+        -240
+      ],
+      "id": "5d0d046b-a999-535c-981a-dea5983d4437",
+      "name": "Reply \u00b7 Not transformed",
+      "webhookId": "8863f42d-cdb9-54a8-adaa-b3f559e9e98d"
+    },
+    {
+      "parameters": {
+        "content": "### The validator is the safety net\n\nTrustGuard proposes; the node verifies. `applyTransform` compares\nthe response to what was sent and rejects anything that could\nsmuggle content through:\n\n- role changed or missing \u2192 `role_mismatch` / `role_missing`\n- message count differs \u2192 `message_count`\n- content list length or part types differ \u2192 `content_length`\n- non-text content part \u2192 `not_text_coverable`\n- `{input: \"...\"}` against a multi-part message \u2192 `input_span`\n- tool-call count / name / id drift \u2192 `tool_*_mismatch`\n- nothing actually changed \u2192 `empty_transform`\n\nAny rejection throws instead of forwarding.",
+        "height": 420,
+        "width": 460,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -180
+      ],
+      "id": "20e979da-c731-57f8-b800-08ba1fcec298",
+      "name": "Note 20e979"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "TrustGuard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TrustGuard": {
+      "main": [
+        [
+          {
+            "node": "Reply \u00b7 Not transformed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Not transformed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Diff",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Not transformed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diff": {
+      "main": [
+        [
+          {
+            "node": "Reply \u00b7 Transform diff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

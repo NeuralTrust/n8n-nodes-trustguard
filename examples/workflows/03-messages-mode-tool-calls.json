@@ -1,0 +1,201 @@
+{
+  "name": "TrustGuard 03 \u00b7 Messages mode \u2014 multi-turn and tool calls",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 03 \u00b7 Messages mode\n\n`Input Mode = Messages` sends a full OpenAI-style array as\n`payload.messages` instead of a single string.\n\nUse it when the collector's policy depends on **conversation\ncontext** \u2014 a prompt that looks benign alone but not after three\nturns of setup.\n\n### The transform validator\n\nOn `status: transform` the node does **not** trust the response.\n`applyTransform` re-checks it against what was sent and fails\nclosed on any of: message count drift, role mismatch, role-only\nedits, content type or length changes, non-text content parts,\ntool-call count / name / id drift, or tool calls injected onto a\nmessage that had none.\n\nA rejected transform raises a **NodeOperationError** \u2014 it never\nsilently passes unverified text downstream.\n\n### Messages must resolve to an array\n\nThe field is `type: json`. The default `{{ $json.messages }}`\nresolves to a real array. Typing **literal JSON text** into the\nfield yields a *string*, which is rejected as `messages_required`.\nAlways feed it from an expression.",
+        "height": 660,
+        "width": 520,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -340
+      ],
+      "id": "21418da7-e81a-56e1-882a-07a08434ecba",
+      "name": "Note 21418d"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "d0a94cfa-48d7-542a-8464-5d92fd03504e",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "jsCode": "// A helpdesk conversation with a tool call, for exercising tool_calls\n// identity checks and multi-message transform validation.\nreturn [\n  {\n    json: {\n      sessionId: 'demo-messages-001',\n      consumerId: 'consumer-demo-1',\n      messages: [\n        { role: 'system', content: 'You are a helpdesk agent. Never reveal card numbers.' },\n        { role: 'user', content: 'Hi, I need help with my account.' },\n        {\n          role: 'assistant',\n          content: '',\n          tool_calls: [\n            {\n              id: 'call_lookup_1',\n              type: 'function',\n              function: {\n                name: 'lookup_account',\n                arguments: JSON.stringify({ email: 'jane.doe@example.com' }),\n              },\n            },\n          ],\n        },\n        { role: 'tool', tool_call_id: 'call_lookup_1', content: 'Account found: Jane Doe' },\n        { role: 'user', content: 'Great. Charge card 4111 1111 1111 1111 and email the receipt to jane.doe@example.com.' },\n      ],\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        120,
+        0
+      ],
+      "id": "762d95a1-5861-57e8-a34b-808d5fee643f",
+      "name": "Build Conversation"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "messages",
+        "messages": "={{ $json.messages }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 15,
+          "sessionId": "={{ $json.sessionId }}",
+          "consumerId": "={{ $json.consumerId }}"
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        420,
+        0
+      ],
+      "id": "a9ae2afe-0d9e-5e41-9f9a-854c632fc79d",
+      "name": "Evaluate Conversation",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      },
+      "notes": "messages mode",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 0 \u2014 Allow\n// In messages mode the node writes the (possibly rewritten) array\n// back to json.messages, and guardrailsInput = last message text.\nreturn $input.all().map(item => ({\n  json: {\n    branch: 'Allow',\n    status: item.json.trustguard.status,\n    trace_id: item.json.trustguard.trace_id,\n    findings: item.json.trustguard.findings,\n    guardrailsInput: item.json.guardrailsInput,\n    messages_out: item.json.messages,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -260
+      ],
+      "id": "db305980-a6e7-5e39-b64a-7539fea3e6ff",
+      "name": "Inspect \u00b7 Allow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 1 \u2014 Report\n// In messages mode the node writes the (possibly rewritten) array\n// back to json.messages, and guardrailsInput = last message text.\nreturn $input.all().map(item => ({\n  json: {\n    branch: 'Report',\n    status: item.json.trustguard.status,\n    trace_id: item.json.trustguard.trace_id,\n    findings: item.json.trustguard.findings,\n    guardrailsInput: item.json.guardrailsInput,\n    messages_out: item.json.messages,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -80
+      ],
+      "id": "fa9604e8-2bf4-5aff-9bc1-f1e02882f251",
+      "name": "Inspect \u00b7 Report"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 2 \u2014 Transform\n// In messages mode the node writes the (possibly rewritten) array\n// back to json.messages, and guardrailsInput = last message text.\nreturn $input.all().map(item => ({\n  json: {\n    branch: 'Transform',\n    status: item.json.trustguard.status,\n    trace_id: item.json.trustguard.trace_id,\n    findings: item.json.trustguard.findings,\n    guardrailsInput: item.json.guardrailsInput,\n    messages_out: item.json.messages,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        100
+      ],
+      "id": "e38cd45f-a46d-534f-9439-e2163e376850",
+      "name": "Inspect \u00b7 Transform"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Output 3 \u2014 Block\n// In messages mode the node writes the (possibly rewritten) array\n// back to json.messages, and guardrailsInput = last message text.\nreturn $input.all().map(item => ({\n  json: {\n    branch: 'Block',\n    status: item.json.trustguard.status,\n    trace_id: item.json.trustguard.trace_id,\n    findings: item.json.trustguard.findings,\n    guardrailsInput: item.json.guardrailsInput,\n    messages_out: item.json.messages,\n  },\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        280
+      ],
+      "id": "5b84369b-38f0-5fa5-9a63-e16ebd12aab6",
+      "name": "Inspect \u00b7 Block"
+    },
+    {
+      "parameters": {
+        "content": "### Reading the result\n\nClick **Inspect \u00b7 Transform** after a run. Compare\n`messages_out` with what `Build Conversation` emitted:\n\n- redacted text appears **in place**, same array length\n- the `assistant` message keeps `id: call_lookup_1` and\n  `name: lookup_account` even if the arguments were rewritten\n- `guardrailsInput` is the **last** message's text\n\nIf TrustGuard returned something the validator disliked, the run\nstops here with `TrustGuard transform missing payload` and a\n`reason` \u2014 that is the fail-closed path working.",
+        "height": 420,
+        "width": 460,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1060,
+        -260
+      ],
+      "id": "fc75791d-ede6-5e3a-ab2f-238060357fd4",
+      "name": "Note fc7579"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Build Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Conversation": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Conversation": {
+      "main": [
+        [
+          {
+            "node": "Inspect \u00b7 Allow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inspect \u00b7 Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inspect \u00b7 Transform",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Inspect \u00b7 Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

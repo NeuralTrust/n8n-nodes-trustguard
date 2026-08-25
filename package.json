@@ -1,0 +1,62 @@
+{
+	"name": "@neuraltrust/n8n-nodes-trustguard",
+	"version": "0.1.0",
+	"description": "n8n community node for NeuralTrust TrustGuard. Evaluates LLM input and output with POST /v1/evaluate.",
+	"license": "MIT",
+	"homepage": "https://github.com/NeuralTrust/n8n-nodes-trustguard",
+	"keywords": [
+		"n8n-community-node-package"
+	],
+	"author": {
+		"name": "NeuralTrust",
+		"email": "albert.bausili@neuraltrust.ai"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/NeuralTrust/n8n-nodes-trustguard.git"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease",
+		"test": "vitest run tests/payload.test.ts tests/transport.test.ts tests/execute.test.ts",
+		"test:live": "vitest run tests/live/evaluate.live.test.ts"
+	},
+	"files": [
+		"dist",
+		"!dist/tsconfig.tsbuildinfo"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/TrustGuardApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/TrustGuard/NeuralTrustTrustGuard.node.js"
+		]
+	},
+	"dependencies": {},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"eslint": "9.32.0",
+		"prettier": "3.6.2",
+		"release-it": "^19.0.4",
+		"typescript": "5.9.2",
+		"vitest": "^3.2.4"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"engines": {
+		"node": ">=20 <25"
+	}
+}

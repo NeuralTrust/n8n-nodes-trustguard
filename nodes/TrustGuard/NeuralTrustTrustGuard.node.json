@@ -1,0 +1,19 @@
+{
+	"node": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["AI", "Security"],
+	"alias": ["TrustGuard", "NeuralTrust", "evaluate", "LLM security"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/NeuralTrust/n8n-nodes-trustguard#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/NeuralTrust/n8n-nodes-trustguard"
+			}
+		]
+	}
+}

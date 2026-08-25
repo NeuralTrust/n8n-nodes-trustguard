@@ -1,0 +1,155 @@
+{
+	"name": "NeuralTrust TrustGuard — Webhook 403",
+	"meta": {
+		"description": "Evaluate an inbound webhook body with TrustGuard. Block returns HTTP 403 plus trace_id and findings. Transport failures return HTTP 503.",
+		"templateCredsSetupCompleted": false
+	},
+	"nodes": [
+		{
+			"id": "note-overview",
+			"name": "Sticky Note",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [180, 80],
+			"parameters": {
+				"content": "## Webhook 403 on TrustGuard block\n\nUse this in front of any HTTP-triggered agent or API.\n\n- `block` → HTTP 403 with `trace_id` and `findings`\n- `allow` / `report` / `transform` → HTTP 200\n- Evaluate transport failure → HTTP 503\n\nAttach a Header Auth credential that sends `Authorization: Bearer tgk_…`. Do not hard-code keys.",
+				"width": 400,
+				"height": 320,
+				"color": 5
+			}
+		},
+		{
+			"id": "webhook",
+			"name": "Webhook",
+			"type": "n8n-nodes-base.webhook",
+			"typeVersion": 2,
+			"position": [680, 300],
+			"webhookId": "trustguard-webhook-403",
+			"parameters": {
+				"httpMethod": "POST",
+				"path": "trustguard",
+				"responseMode": "responseNode",
+				"options": {}
+			}
+		},
+		{
+			"id": "evaluate",
+			"name": "Evaluate Input",
+			"type": "n8n-nodes-base.httpRequest",
+			"typeVersion": 4.2,
+			"position": [920, 300],
+			"onError": "continueErrorOutput",
+			"parameters": {
+				"method": "POST",
+				"url": "https://trustguard.neuraltrust.ai/v1/evaluate",
+				"authentication": "genericCredentialType",
+				"genericAuthType": "httpHeaderAuth",
+				"sendBody": true,
+				"specifyBody": "json",
+				"jsonBody": "={\n  \"payload\": {\n    \"messages\": [\n      { \"role\": \"user\", \"content\": {{ JSON.stringify($json.body?.input || $json.body?.text || JSON.stringify($json.body)) }} }\n    ]\n  },\n  \"direction\": \"input\",\n  \"protocol\": \"llm\",\n  \"attributes\": {\n    \"content_type\": \"application/json\",\n    \"model\": { \"name\": \"\" }\n  }\n}",
+				"options": {
+					"timeout": 5000
+				}
+			}
+		},
+		{
+			"id": "switch-status",
+			"name": "Verdict",
+			"type": "n8n-nodes-base.switch",
+			"typeVersion": 3.2,
+			"position": [1180, 240],
+			"parameters": {
+				"rules": {
+					"values": [
+						{
+							"outputKey": "Block",
+							"renameOutput": true,
+							"conditions": {
+								"combinator": "and",
+								"options": {
+									"caseSensitive": true,
+									"leftValue": "",
+									"typeValidation": "strict",
+									"version": 2
+								},
+								"conditions": [
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									}
+								]
+							}
+						}
+					]
+				},
+				"options": {
+					"fallbackOutput": "extra"
+				}
+			}
+		},
+		{
+			"id": "respond-403",
+			"name": "Respond 403",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1.1,
+			"position": [1440, 120],
+			"parameters": {
+				"respondWith": "json",
+				"responseBody": "={{ { error: 'blocked', trace_id: $json.trace_id, request_id: $json.request_id, findings: $json.findings } }}",
+				"options": {
+					"responseCode": 403
+				}
+			}
+		},
+		{
+			"id": "respond-200",
+			"name": "Respond 200",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1.1,
+			"position": [1440, 320],
+			"parameters": {
+				"respondWith": "json",
+				"responseBody": "={{ { status: $json.status, trace_id: $json.trace_id, request_id: $json.request_id } }}",
+				"options": {
+					"responseCode": 200
+				}
+			}
+		},
+		{
+			"id": "respond-503",
+			"name": "Respond 503",
+			"type": "n8n-nodes-base.respondToWebhook",
+			"typeVersion": 1.1,
+			"position": [1440, 520],
+			"parameters": {
+				"respondWith": "json",
+				"responseBody": "={{ { error: 'trustguard_unreachable' } }}",
+				"options": {
+					"responseCode": 503
+				}
+			}
+		}
+	],
+	"connections": {
+		"Webhook": {
+			"main": [[{ "node": "Evaluate Input", "type": "main", "index": 0 }]]
+		},
+		"Evaluate Input": {
+			"main": [
+				[{ "node": "Verdict", "type": "main", "index": 0 }],
+				[{ "node": "Respond 503", "type": "main", "index": 0 }]
+			]
+		},
+		"Verdict": {
+			"main": [
+				[{ "node": "Respond 403", "type": "main", "index": 0 }],
+				[{ "node": "Respond 200", "type": "main", "index": 0 }]
+			]
+		}
+	},
+	"pinData": {},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}

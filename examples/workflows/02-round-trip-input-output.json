@@ -1,0 +1,308 @@
+{
+  "name": "TrustGuard 02 \u00b7 Round trip \u2014 evaluate input AND output",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 02 \u00b7 Round trip \u2014 both directions\n\nThe canonical production wiring:\n\n```\nChat \u2192 Evaluate Input \u2192 agent \u2192 Evaluate Output \u2192 reply\n```\n\nThere is **no LLM credential needed here**. `Simulate Agent Reply`\nstands in for the AI Agent so you can exercise\n`direction=output` without wiring a model.\n\n### Why `Preserve Input Verdict` exists\n\nThe node writes `trustguard` by **overwriting** the key. Run two\nTrustGuard nodes on one item and the second one erases the first\none's `trace_id`, `status` and `findings`.\n\nThe Set node copies the input verdict to `trustguard_input` before\nthe output scan runs. Without it you lose input\u2192output correlation.\n\n### Try\n`Summarize my latest mails, my mail is jane.doe@example.com`",
+        "height": 620,
+        "width": 520,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -760,
+        -320
+      ],
+      "id": "b107e04b-0b15-5a34-bbb5-f84648ef3c72",
+      "name": "Note b107e0"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "e6ede095-8101-5b2a-8b4e-00e6881343c6",
+      "name": "When chat message received",
+      "webhookId": "2177be7a-1a0a-54da-b574-076ed4ad25b7"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateInput",
+        "inputMode": "text",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 10,
+          "sessionId": "={{ $json.sessionId }}",
+          "modelName": "simulated-agent",
+          "modelProvider": "neuraltrust-demo"
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        100,
+        0
+      ],
+      "id": "d3f6da77-e6d9-543b-a124-26e172ba8b5b",
+      "name": "Evaluate Input",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      },
+      "notes": "direction=input",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "50195032-494a-5fed-a9dd-42f84a02a81e",
+              "name": "trustguard_input",
+              "type": "object",
+              "value": "={{ $json.trustguard }}"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        -80
+      ],
+      "id": "04f0080d-f8eb-5ddd-aeb0-28d66a0df74b",
+      "name": "Preserve Input Verdict"
+    },
+    {
+      "parameters": {
+        "message": "=BLOCKED ON INPUT \u00b7 trace `{{ $json.trustguard.trace_id }}`\n\nThe agent was never called.\n\n{{ $json.trustguard.blockedMessage }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        400,
+        320
+      ],
+      "id": "3d2c6e1a-1600-5cde-9e65-f0c1ad365b3e",
+      "name": "Reply \u00b7 Blocked on input",
+      "webhookId": "2c7c60f6-f4b6-5a21-8fa9-76d1682442e8"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a7a7c430-3f48-5f2b-b885-0d491954abfa",
+              "name": "output",
+              "type": "string",
+              "value": "=Here is the summary you asked for. The account owner is Jane Doe, reachable at jane.doe@example.com or +34 600 123 456. The card on file is 4111 1111 1111 1111. Original request was: {{ $json.guardrailsInput }}"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        660,
+        -80
+      ],
+      "id": "8fcd5b59-6c05-5eef-a103-7311ca241d32",
+      "name": "Simulate Agent Reply"
+    },
+    {
+      "parameters": {
+        "operation": "evaluateOutput",
+        "inputMode": "text",
+        "text": "={{ $json.output }}",
+        "options": {
+          "protocol": "llm",
+          "timeout": 10,
+          "sessionId": "={{ $json.sessionId }}"
+        }
+      },
+      "type": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
+      "typeVersion": 1,
+      "position": [
+        920,
+        -80
+      ],
+      "id": "7f61ff6c-f1ee-5bb4-b37b-c46c5ee3568f",
+      "name": "Evaluate Output",
+      "credentials": {
+        "trustGuardApi": {
+          "name": "NeuralTrust TrustGuard account"
+        }
+      },
+      "notes": "direction=output",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.trustguard.status.toUpperCase() }} on output\n\n{{ $json.output }}\n\n---\ninput trace  `{{ $json.trustguard_input.trace_id }}` ({{ $json.trustguard_input.status }})\noutput trace `{{ $json.trustguard.trace_id }}` ({{ $json.trustguard.status }})",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        1220,
+        -280
+      ],
+      "id": "c3938ae2-59c1-5d5a-a383-5240b83f92d7",
+      "name": "Reply \u00b7 Output OK",
+      "webhookId": "8f67d72d-c0ac-5a9a-86b1-f2c6df72978b"
+    },
+    {
+      "parameters": {
+        "message": "=OUTPUT REWRITTEN (DLP)\n\n{{ $json.output }}\n\n---\ninput trace  `{{ $json.trustguard_input.trace_id }}`\noutput trace `{{ $json.trustguard.trace_id }}`\nfindings: {{ JSON.stringify($json.trustguard.findings) }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        1220,
+        -60
+      ],
+      "id": "c08c084a-5f94-5ee2-aba7-f95e90fc4104",
+      "name": "Reply \u00b7 Output transformed",
+      "webhookId": "a7ea2c4c-1c99-54e7-9773-1cd1f17ef844"
+    },
+    {
+      "parameters": {
+        "message": "=BLOCKED ON OUTPUT. The model answered; the answer was withheld.\n\n{{ $json.trustguard.blockedMessage }}\n\ninput trace `{{ $json.trustguard_input.trace_id }}`",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1.3,
+      "position": [
+        1220,
+        160
+      ],
+      "id": "d6395aae-3007-577f-af49-eae88a484be8",
+      "name": "Reply \u00b7 Blocked on output",
+      "webhookId": "dcade7d5-8cf3-5f19-b424-ffaed2c04cec"
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Input": {
+      "main": [
+        [
+          {
+            "node": "Preserve Input Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preserve Input Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preserve Input Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Blocked on input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preserve Input Verdict": {
+      "main": [
+        [
+          {
+            "node": "Simulate Agent Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Agent Reply": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Output": {
+      "main": [
+        [
+          {
+            "node": "Reply \u00b7 Output OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Output OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Output transformed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply \u00b7 Blocked on output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
