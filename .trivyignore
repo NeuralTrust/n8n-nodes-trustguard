@@ -1,0 +1,16 @@
+# Transitive advisories that cannot be remediated here and cannot reach users.
+#
+# This package publishes `dist/` only and declares zero runtime dependencies, so
+# nothing below is present in the npm tarball. Both arrive through the n8n
+# development toolchain: nanoid via @n8n/utils, which pins 3.3.8 exactly, and
+# uuid via @langchain/* which requires ^10, while the fix is 11.1.1 — outside
+# the range. Neither can be bumped without the upstream package changing.
+#
+# Revisit when n8n updates its dependencies.
+
+# nanoid: custom generators can loop indefinitely when size is zero
+CVE-2026-67213
+# nanoid: non-secure generators can loop indefinitely with negative size
+CVE-2026-67214
+# uuid: missing buffer bounds check in v3/v5/v6 when buf is provided
+CVE-2026-41907
