@@ -1,5 +1,5 @@
-/* eslint-disable @n8n/community-nodes/require-node-api-error -- helpers throw typed errors; the node maps them to NodeApiError */
 import type { IExecuteFunctions, IHttpRequestOptions } from 'n8n-workflow';
+import { sleep } from 'n8n-workflow';
 
 import {
 	TrustGuardAuthError,
@@ -91,16 +91,23 @@ export function mapStatusCode(statusCode: number): never | void {
 	}
 }
 
+function parseJson(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return undefined;
+	}
+}
+
 export function interpretResponse(response: HttpResponse): TrustGuardVerdict {
 	mapStatusCode(response.statusCode);
 	let body = response.body;
 	if (typeof body === 'string') {
-		try {
-			body = JSON.parse(body);
-		} catch {
-			// Custom error is rethrown as NodeApiError by the node execute method.
+		const parsed = parseJson(body);
+		if (parsed === undefined) {
 			throw new TrustGuardUnknownVerdictError();
 		}
+		body = parsed;
 	}
 	return parseEvaluateResponse(body);
 }
@@ -228,14 +235,6 @@ export function mapTransportError(error: unknown): Error {
 	return new TrustGuardRequestError();
 }
 
-const defaultSleep = async (ms: number): Promise<void> => {
-	await new Promise((resolve) => {
-		// Tests inject their own sleeper via options.sleep.
-		// eslint-disable-next-line @n8n/community-nodes/no-restricted-globals
-		setTimeout(resolve, ms);
-	});
-};
-
 export async function evaluateWithSender(
 	send: Sender,
 	options: {
@@ -244,7 +243,7 @@ export async function evaluateWithSender(
 	} = {},
 ): Promise<TrustGuardVerdict> {
 	const maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
-	const sleep = options.sleep ?? defaultSleep;
+	const wait = options.sleep ?? sleep;
 	const attempts = maxRetries + 1;
 
 	let lastUnreachable: TrustGuardUnreachableError | undefined;
@@ -258,7 +257,7 @@ export async function evaluateWithSender(
 			const mapped = mapTransportError(error);
 			if (mapped instanceof TrustGuardUnreachableError && attempt < maxRetries) {
 				lastUnreachable = mapped;
-				await sleep(retryDelayMs(undefined, attempt));
+				await wait(retryDelayMs(undefined, attempt));
 				continue;
 			}
 			throw mapped;
@@ -266,7 +265,7 @@ export async function evaluateWithSender(
 
 		lastResponse = response;
 		if (RETRYABLE_HTTP_STATUSES.has(response.statusCode) && attempt < maxRetries) {
-			await sleep(retryDelayMs(headerValue(response.headers, 'retry-after'), attempt));
+			await wait(retryDelayMs(headerValue(response.headers, 'retry-after'), attempt));
 			continue;
 		}
 		return interpretResponse(response);
