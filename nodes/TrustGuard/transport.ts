@@ -327,6 +327,11 @@ export function createN8nSender(
 	};
 }
 
+// One message for everything on the Block output. `ask` lands there too and
+// deliberately reads the same: in AI-tool mode this string is what the model
+// receives, and wording it as a pending confirmation would invite an agent to
+// treat a denial as something it can resolve. The distinction stays on
+// `trustguard.status`, where a workflow can branch on it.
 export function blockText(verdict: TrustGuardVerdict): string {
 	if (verdict.traceId) {
 		return `Blocked by NeuralTrust TrustGuard. trace_id=${verdict.traceId}`;

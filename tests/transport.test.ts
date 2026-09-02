@@ -10,6 +10,7 @@ import {
 	TrustGuardUnreachableError,
 } from '../nodes/TrustGuard/errors';
 import {
+	blockText,
 	evaluateWithSender,
 	interpretResponse,
 	mapTransportError,
@@ -43,6 +44,31 @@ describe('parseEvaluateResponse', () => {
 
 	it('accepts skip as a known status', () => {
 		expect(parseEvaluateResponse({ status: 'skip' }).status).toBe('skip');
+	});
+
+	it('accepts ask as a known status rather than an unknown verdict', () => {
+		expect(parseEvaluateResponse({ status: 'ask' }).status).toBe('ask');
+		expect(parseEvaluateResponse({ status: 'ASK' }).status).toBe('ask');
+	});
+});
+
+describe('blockText', () => {
+	it('names the trace when there is one', () => {
+		expect(blockText({ status: 'block', traceId: 'tr-9', raw: {} })).toBe(
+			'Blocked by NeuralTrust TrustGuard. trace_id=tr-9',
+		);
+	});
+
+	it('omits the trace when there is none', () => {
+		expect(blockText({ status: 'block', raw: {} })).toBe('Blocked by NeuralTrust TrustGuard.');
+	});
+
+	// One wording for the whole Block output. In tool mode the model reads this,
+	// so an ask must not read as a step the agent can resolve.
+	it('describes ask exactly as it describes block', () => {
+		expect(blockText({ status: 'ask', traceId: 'tr-9', raw: {} })).toBe(
+			blockText({ status: 'block', traceId: 'tr-9', raw: {} }),
+		);
 	});
 
 	it('treats a non-object transformed_payload as missing', () => {

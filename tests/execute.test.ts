@@ -58,11 +58,16 @@ describe('verdict routing', () => {
 		['skip', 0],
 		['report', 1],
 		['block', 3],
+		['ask', 3],
+		['ASK', 3],
 	])('routes %s to output %i', async (status, index) => {
 		const out = await run(context({ respond: ok({ status, trace_id: 't-1' }) }));
 		expect(out[index]).toHaveLength(1);
 		expect(out.flat()).toHaveLength(1);
-		expect(out[index][0].json.trustguard).toMatchObject({ status, trace_id: 't-1' });
+		expect(out[index][0].json.trustguard).toMatchObject({
+			status: status.toLowerCase(),
+			trace_id: 't-1',
+		});
 	});
 
 	it('routes transform to output 2 and rewrites chatInput', async () => {
@@ -79,6 +84,55 @@ describe('verdict routing', () => {
 		expect(out[2][0].json.guardrailsInput).toBe('redacted');
 		expect(out[2][0].json.chatInput).toBe('redacted');
 		expect(out[2][0].json.keep).toBe('me');
+	});
+
+	// `ask` used to be absent from KNOWN_STATUSES, so it raised an unknown verdict
+	// and every item failed. One Ask gate on the bound policy took the workflow
+	// down with a message that never named the cause.
+	it('denies ask on Block, keeping the status and the original prompt', async () => {
+		const out = await run(context({ respond: ok({ status: 'ask', trace_id: 't-3' }) }));
+
+		expect(out[3]).toHaveLength(1);
+		expect(out.flat()).toHaveLength(1);
+
+		const item = out[3][0];
+		expect(item.error).toBeUndefined();
+		expect(item.json.trustguard).toMatchObject({
+			status: 'ask',
+			trace_id: 't-3',
+			blockedMessage: 'Blocked by NeuralTrust TrustGuard. trace_id=t-3',
+		});
+		// Deliberately the same string a block gets: in tool mode the model reads
+		// this, and "awaiting confirmation" would invite it to resolve a denial.
+		expect(item.json.guardrailsInput).toBe('Blocked by NeuralTrust TrustGuard. trace_id=t-3');
+		// Nothing is redacted, so an approval step can forward the real content.
+		expect(item.json.chatInput).toBe('hello');
+		expect(item.json.keep).toBe('me');
+	});
+
+	it('denies ask in messages mode without rewriting the array', async () => {
+		const messages = [{ role: 'user', content: 'hello' }];
+		const out = await run(
+			context({
+				params: { inputMode: 'messages', messages },
+				respond: ok({ status: 'ask', trace_id: 't-4' }),
+			}),
+		);
+
+		expect(out[3]).toHaveLength(1);
+		expect(out[3][0].json.messages).toEqual(messages);
+		expect(out[3][0].json.guardrailsInput).toBe(
+			'Blocked by NeuralTrust TrustGuard. trace_id=t-4',
+		);
+	});
+
+	it('returns ask to the agent on output 0 in tool mode', async () => {
+		const out = await run(
+			context({ asTool: true, respond: ok({ status: 'ask', trace_id: 't-5' }) }),
+		);
+
+		expect(out[0]).toHaveLength(1);
+		expect(out[0][0].json.trustguard).toMatchObject({ status: 'ask' });
 	});
 });
 
@@ -97,6 +151,8 @@ describe('failure routing', () => {
 		expect(out[0]).toHaveLength(0);
 		expect(out[3]).toHaveLength(1);
 		const item = out[3][0];
+		// A hard failure must not be described as anything softer than a block.
+		expect(item.json.guardrailsInput).toBe('Blocked by NeuralTrust TrustGuard.');
 		expect(item.error).toBeInstanceOf(NodeApiError);
 		expect(item.json.error).toContain('authentication failed');
 		expect(item.json.trustguard).toMatchObject({ status: 'error', evaluated: false });

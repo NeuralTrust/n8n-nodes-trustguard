@@ -1,6 +1,6 @@
 # TrustGuard demo pack
 
-Nine n8n workflows that exercise every operation, option, output and failure mode
+Nine n8n workflows that exercise every operation, option and output, and the failure modes
 of the `NeuralTrust TrustGuard` node.
 
 These are not the same as [`../templates/`](../templates). Templates use HTTP

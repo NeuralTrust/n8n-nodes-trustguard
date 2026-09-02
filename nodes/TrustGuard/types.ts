@@ -3,7 +3,12 @@ export const EVALUATE_PATH = '/v1/evaluate';
 export const DEFAULT_TIMEOUT_SECONDS = 5;
 export const DEFAULT_MAX_RETRIES = 2;
 
-export const KNOWN_STATUSES = new Set(['allow', 'block', 'transform', 'report', 'skip']);
+// The type and the runtime set are derived from one tuple so they cannot drift.
+const STATUSES = ['allow', 'ask', 'block', 'transform', 'report', 'skip'] as const;
+
+// Typed as ReadonlySet<string> on purpose: the parser tests an arbitrary
+// lowercased string against it.
+export const KNOWN_STATUSES: ReadonlySet<string> = new Set(STATUSES);
 
 export const UNREACHABLE_HTTP_STATUSES = new Set([502, 504]);
 export const RETRYABLE_HTTP_STATUSES = new Set([429, 502, 504]);
@@ -16,7 +21,7 @@ export const AUTH_FAILED = 'TrustGuard authentication failed';
 export const ENTITLEMENTS = 'TrustGuard entitlements unavailable';
 export const REQUEST_FAILED = 'TrustGuard request failed';
 
-export type TrustGuardStatus = 'allow' | 'block' | 'transform' | 'report' | 'skip';
+export type TrustGuardStatus = (typeof STATUSES)[number];
 export type EvaluateDirection = 'input' | 'output';
 
 export type JsonObject = Record<string, unknown>;

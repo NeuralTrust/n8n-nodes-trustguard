@@ -12,7 +12,7 @@
 			"typeVersion": 1,
 			"position": [180, 80],
 			"parameters": {
-				"content": "## Output scan\n\nPair this with the chat input gate. Post-LLM evaluation sees assembled text only — there is no token-level redaction.\n\n- `block` → templated refusal that includes `trace_id`\n- `transform` → replace `output` with the rewritten text\n- `allow` / `report` → continue\n\nAttach Header Auth (`Authorization: Bearer tgk_…`). Never embed keys in the JSON.",
+				"content": "## Output scan\n\nPair this with the chat input gate. Post-LLM evaluation sees assembled text only — there is no token-level redaction.\n\n- `block` / `ask` → templated refusal that includes `trace_id`\n- `transform` → replace `output` with the rewritten text\n- `allow` / `report` → continue\n\nAttach Header Auth (`Authorization: Bearer tgk_…`). Never embed keys in the JSON.",
 				"width": 400,
 				"height": 340,
 				"color": 5
@@ -72,7 +72,7 @@
 							"outputKey": "Block",
 							"renameOutput": true,
 							"conditions": {
-								"combinator": "and",
+								"combinator": "or",
 								"options": {
 									"caseSensitive": true,
 									"leftValue": "",
@@ -83,6 +83,11 @@
 									{
 										"leftValue": "={{ $json.status }}",
 										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									},
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "ask",
 										"operator": { "type": "string", "operation": "equals" }
 									}
 								]
