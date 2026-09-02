@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-02
+
 ### Fixed
 
 - An `ask` verdict no longer fails the item with `TrustGuard returned an unknown
@@ -38,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP Request templates for chat input, webhook 403 and output scan
 - Demo workflow pack under `examples/`
 
-[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.2.0
 [0.1.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.1.0
