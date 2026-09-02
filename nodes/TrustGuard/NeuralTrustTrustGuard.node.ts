@@ -36,17 +36,31 @@ type NodeOptions = {
 	failOpenOnUnreachable?: boolean;
 };
 
+// Only the statuses that are known to be safe to forward reach Allow;
+// everything else lands on Block. `ask` asks for human confirmation and a node
+// has no confirmation surface mid-execution, so Block is the most restrictive
+// output the node can express - which is also where TrustGuard's own reduction
+// order puts it (block > ask > transform > report > allow). Listing the passing
+// statuses rather than the denying ones matters: a status added to
+// KNOWN_STATUSES without a branch here fails closed instead of silently
+// forwarding.
 function outputIndex(status: TrustGuardVerdict['status']): number {
-	if (status === 'block') {
-		return OUTPUT_BLOCK;
-	}
-	if (status === 'transform') {
-		return OUTPUT_TRANSFORM;
+	if (status === 'allow' || status === 'skip') {
+		return OUTPUT_ALLOW;
 	}
 	if (status === 'report') {
 		return OUTPUT_REPORT;
 	}
-	return OUTPUT_ALLOW;
+	if (status === 'transform') {
+		return OUTPUT_TRANSFORM;
+	}
+	return OUTPUT_BLOCK;
+}
+
+// Derived from the routing above so the gate message and the branch can never
+// disagree.
+function routesToBlock(status: TrustGuardVerdict['status']): boolean {
+	return outputIndex(status) === OUTPUT_BLOCK;
 }
 
 function attachMetadata(
@@ -157,7 +171,7 @@ async function evaluateItem(
 	if (verdict.status === 'transform') {
 		outgoingMessages = applyTransform(messages, verdict.transformedPayload);
 		guardrailsInput = lastMessageText(outgoingMessages);
-	} else if (verdict.status === 'block') {
+	} else if (routesToBlock(verdict.status)) {
 		guardrailsInput = blockText(verdict);
 	}
 
@@ -166,7 +180,7 @@ async function evaluateItem(
 		trace_id: verdict.traceId,
 		request_id: verdict.requestId,
 		findings: verdict.findings as IDataObject | IDataObject[] | undefined,
-		blockedMessage: verdict.status === 'block' ? blockText(verdict) : undefined,
+		blockedMessage: routesToBlock(verdict.status) ? blockText(verdict) : undefined,
 	});
 
 	json.guardrailsInput = guardrailsInput;

@@ -122,7 +122,7 @@
     },
     {
       "parameters": {
-        "content": "### What the node writes onto every item\n\n```\nguardrailsInput            evaluated (or rewritten) text\ntrustguard.status          allow | report | transform | block | skip\ntrustguard.trace_id        correlate with the NeuralTrust console\ntrustguard.request_id\ntrustguard.findings\ntrustguard.blockedMessage  block only\ntrustguard.workflowId / workflowName / executionId\n```\n\n`chatInput` and `sessionId` are preserved so a downstream AI Agent\nin `auto` prompt mode keeps working.",
+        "content": "### What the node writes onto every item\n\n```\nguardrailsInput            evaluated (or rewritten) text\ntrustguard.status          allow | report | transform | ask | block | skip\ntrustguard.trace_id        correlate with the NeuralTrust console\ntrustguard.request_id\ntrustguard.findings\ntrustguard.blockedMessage  block and ask\ntrustguard.workflowId / workflowName / executionId\n```\n\n`chatInput` and `sessionId` are preserved so a downstream AI Agent\nin `auto` prompt mode keeps working.",
         "height": 420,
         "width": 460,
         "color": 6

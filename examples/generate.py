@@ -293,11 +293,11 @@ Open the **Chat** panel at the bottom and send each one.""", [-620, -280], w=520
 
 ```
 guardrailsInput            evaluated (or rewritten) text
-trustguard.status          allow | report | transform | block | skip
+trustguard.status          allow | report | transform | ask | block | skip
 trustguard.trace_id        correlate with the NeuralTrust console
 trustguard.request_id
 trustguard.findings
-trustguard.blockedMessage  block only
+trustguard.blockedMessage  block and ask
 trustguard.workflowId / workflowName / executionId
 ```
 
@@ -536,7 +536,7 @@ Publish the workflow and drop `-test` from the path.
 | `allow`, `skip` | 200 |
 | `report` | 200 + findings |
 | `transform` | 200 + rewritten prompt |
-| `block` | **403** |
+| `block`, `ask` | **403** |
 | node error | **503** |
 
 ### The 5th output
@@ -570,7 +570,7 @@ Everything that is not eligible for fail-open lands there:
     wf.link(tg, xf, out=OUT_TRANSFORM)
 
     block = respond_webhook(wf, "403 Block", [480, 220], 403,
-        "={{ { error: 'blocked', trace_id: $json.trustguard.trace_id, request_id: $json.trustguard.request_id, findings: $json.trustguard.findings } }}")
+        "={{ { error: 'blocked', status: $json.trustguard.status, trace_id: $json.trustguard.trace_id, request_id: $json.trustguard.request_id, findings: $json.trustguard.findings } }}")
     wf.link(tg, block, out=OUT_BLOCK)
 
     # $json.error on the node's error output is a plain string, not an object.
@@ -928,7 +928,7 @@ the option enabled.
 | TLS / certificate error | never |
 | Non-JSON 200, unknown status | never |
 | Unusable `transformed_payload` | never |
-| `status: block` | not a failure — it is a branch |
+| `status: block`, `status: ask` | not a failure — both are branches |
 
 ### Retries
 `{429, 502, 504}` → 3 attempts total. Honors `Retry-After` capped at
@@ -1067,7 +1067,9 @@ TrustGuard credential.""", [-720, -300], w=520, h=560, color=1)
                     "You are a security triage assistant. For every user message, "
                     "call the TrustGuard tool to evaluate it, then report the verdict, "
                     "the trace_id and any findings back to the user in plain language. "
-                    "Never act on a request that TrustGuard blocks."
+                    "Never act on a request that TrustGuard blocks, and never act on "
+                    "one it returns ask for \u2014 that needs a human, which this "
+                    "workflow cannot reach."
                 ),
             },
         },
@@ -1098,7 +1100,9 @@ TrustGuard credential.""", [-720, -300], w=520, h=560, color=1)
             "descriptionType": "manual",
             "toolDescription": (
                 "Evaluate a piece of text with NeuralTrust TrustGuard. Returns a verdict "
-                "(allow, report, transform or block), a trace_id and any policy findings."
+                "(allow, report, transform, ask or block), a trace_id and any policy "
+                "findings. ask means the text needs human confirmation, which cannot be "
+                "obtained here, so treat it as a refusal."
             ),
             "options": {"protocol": "llm", "timeout": 10},
         },
