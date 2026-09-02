@@ -12,7 +12,7 @@
 			"typeVersion": 1,
 			"position": [180, 80],
 			"parameters": {
-				"content": "## Webhook 403 on TrustGuard block\n\nUse this in front of any HTTP-triggered agent or API.\n\n- `block` → HTTP 403 with `trace_id` and `findings`\n- `allow` / `report` / `transform` → HTTP 200\n- Evaluate transport failure → HTTP 503\n\nAttach a Header Auth credential that sends `Authorization: Bearer tgk_…`. Do not hard-code keys.",
+				"content": "## Webhook 403 on TrustGuard block\n\nUse this in front of any HTTP-triggered agent or API.\n\n- `block` / `ask` → HTTP 403 with `trace_id` and `findings`\n- `allow` / `report` / `transform` → HTTP 200\n- Evaluate transport failure → HTTP 503\n\nAttach a Header Auth credential that sends `Authorization: Bearer tgk_…`. Do not hard-code keys.",
 				"width": 400,
 				"height": 320,
 				"color": 5
@@ -65,7 +65,7 @@
 							"outputKey": "Block",
 							"renameOutput": true,
 							"conditions": {
-								"combinator": "and",
+								"combinator": "or",
 								"options": {
 									"caseSensitive": true,
 									"leftValue": "",
@@ -76,6 +76,11 @@
 									{
 										"leftValue": "={{ $json.status }}",
 										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									},
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "ask",
 										"operator": { "type": "string", "operation": "equals" }
 									}
 								]

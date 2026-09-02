@@ -37,7 +37,7 @@
       "parameters": {
         "promptType": "auto",
         "options": {
-          "systemMessage": "You are a security triage assistant. For every user message, call the TrustGuard tool to evaluate it, then report the verdict, the trace_id and any findings back to the user in plain language. Never act on a request that TrustGuard blocks."
+          "systemMessage": "You are a security triage assistant. For every user message, call the TrustGuard tool to evaluate it, then report the verdict, the trace_id and any findings back to the user in plain language. Never act on a request that TrustGuard blocks, and never act on one it returns ask for \u2014 that needs a human, which this workflow cannot reach."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -78,7 +78,7 @@
         "inputMode": "text",
         "text": "={{ $fromAI('text', 'The user text to evaluate', 'string') }}",
         "descriptionType": "manual",
-        "toolDescription": "Evaluate a piece of text with NeuralTrust TrustGuard. Returns a verdict (allow, report, transform or block), a trace_id and any policy findings.",
+        "toolDescription": "Evaluate a piece of text with NeuralTrust TrustGuard. Returns a verdict (allow, report, transform, ask or block), a trace_id and any policy findings. ask means the text needs human confirmation, which cannot be obtained here, so treat it as a refusal.",
         "options": {
           "protocol": "llm",
           "timeout": 10

@@ -12,7 +12,7 @@
 			"typeVersion": 1,
 			"position": [180, 80],
 			"parameters": {
-				"content": "## NeuralTrust TrustGuard chat input gate\n\nBuilt from built-in nodes only, so it needs no community node.\n\n1. Create a Header Auth credential sending `Authorization: Bearer tgk_…`.\n2. Attach it to **Evaluate Input**.\n3. Optional: set `collector_key` in the HTTP body if the key is not already bound to a collector.\n\nDo not paste API keys into this workflow. Detection verdicts return HTTP 200 — the Switch on `status` is the enforcement.",
+				"content": "## NeuralTrust TrustGuard chat input gate\n\nBuilt from built-in nodes only, so it needs no community node.\n\n1. Create a Header Auth credential sending `Authorization: Bearer tgk_…`.\n2. Attach it to **Evaluate Input**.\n3. Optional: set `collector_key` in the HTTP body if the key is not already bound to a collector.\n\nDo not paste API keys into this workflow. Detection verdicts return HTTP 200 — the Switch on `status` is the enforcement. `ask` denies alongside `block`: a workflow cannot prompt anyone mid-run.",
 				"width": 420,
 				"height": 360,
 				"color": 5
@@ -61,7 +61,7 @@
 							"outputKey": "Block",
 							"renameOutput": true,
 							"conditions": {
-								"combinator": "and",
+								"combinator": "or",
 								"options": {
 									"caseSensitive": true,
 									"leftValue": "",
@@ -72,6 +72,11 @@
 									{
 										"leftValue": "={{ $json.status }}",
 										"rightValue": "block",
+										"operator": { "type": "string", "operation": "equals" }
+									},
+									{
+										"leftValue": "={{ $json.status }}",
+										"rightValue": "ask",
 										"operator": { "type": "string", "operation": "equals" }
 									}
 								]
