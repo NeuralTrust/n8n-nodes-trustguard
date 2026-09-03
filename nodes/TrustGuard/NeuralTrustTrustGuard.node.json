@@ -2,7 +2,7 @@
 	"node": "@neuraltrust/n8n-nodes-trustguard.neuralTrustTrustGuard",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["AI", "Security"],
+	"categories": ["Development", "Utility"],
 	"alias": ["TrustGuard", "NeuralTrust", "evaluate", "LLM security"],
 	"resources": {
 		"credentialDocumentation": [
