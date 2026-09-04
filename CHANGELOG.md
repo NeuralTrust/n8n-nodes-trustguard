@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-04
+
+### Fixed
+
+- The node codex declared the categories `AI` and `Security`. Neither is one of
+  the ten categories n8n documents, so the editor dropped both. The codex now
+  declares `Development` and `Utility`
+- `AI` in `categories` was not merely ignored. n8n's node creator filters out
+  every node carrying it that does not also list `Root Nodes` under an `AI`
+  subcategory, so a panel search from a canvas holding no AI nodes, or from a
+  node's plus endpoint, did not return TrustGuard
+- `LICENSE` duplicated `FITNESS FOR` in the warranty clause. The file is now
+  verbatim MIT
+
+### Changed
+
+- The node's Docs link and the credential's documentation link point at
+  `docs.neuraltrust.ai/integrations/n8n` rather than the README
+
 ## [0.2.0] - 2026-09-02
 
 ### Fixed
@@ -40,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP Request templates for chat input, webhook 403 and output scan
 - Demo workflow pack under `examples/`
 
-[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.2.1
 [0.2.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.2.0
 [0.1.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.1.0
