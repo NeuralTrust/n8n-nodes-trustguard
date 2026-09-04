@@ -7,12 +7,12 @@
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://github.com/NeuralTrust/n8n-nodes-trustguard#credentials"
+				"url": "https://docs.neuraltrust.ai/trustguard/integrations/n8n#2-create-the-credential"
 			}
 		],
 		"primaryDocumentation": [
 			{
-				"url": "https://github.com/NeuralTrust/n8n-nodes-trustguard"
+				"url": "https://docs.neuraltrust.ai/trustguard/integrations/n8n"
 			}
 		]
 	}

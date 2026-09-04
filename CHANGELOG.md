@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `LICENSE` duplicated `FITNESS FOR` in the warranty clause. The file is now
   verbatim MIT
 
+### Changed
+
+- The node's Docs link and the credential's documentation link point at
+  `docs.neuraltrust.ai/trustguard/integrations/n8n` rather than the README
+
 ## [0.2.0] - 2026-09-02
 
 ### Fixed
