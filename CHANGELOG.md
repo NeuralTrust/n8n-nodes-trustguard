@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.1] - 2026-09-03
+## [0.2.1] - 2026-09-04
 
 ### Fixed
 
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The node's Docs link and the credential's documentation link point at
-  `docs.neuraltrust.ai/trustguard/integrations/n8n` rather than the README
+  `docs.neuraltrust.ai/integrations/n8n` rather than the README
 
 ## [0.2.0] - 2026-09-02
 
