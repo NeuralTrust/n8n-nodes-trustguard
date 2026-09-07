@@ -1,6 +1,6 @@
 {
 	"name": "@neuraltrust/n8n-nodes-trustguard",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "n8n community node for NeuralTrust TrustGuard. Evaluates LLM input and output with POST /v1/evaluate.",
 	"license": "MIT",
 	"homepage": "https://github.com/NeuralTrust/n8n-nodes-trustguard",
@@ -23,7 +23,7 @@
 		"lint:fix": "n8n-node lint --fix",
 		"release": "n8n-node release",
 		"prepublishOnly": "n8n-node prerelease",
-		"test": "vitest run tests/payload.test.ts tests/transport.test.ts tests/execute.test.ts",
+		"test": "vitest run tests/payload.test.ts tests/transport.test.ts tests/execute.test.ts tests/codex.test.ts",
 		"test:live": "vitest run tests/live/evaluate.live.test.ts"
 	},
 	"files": [

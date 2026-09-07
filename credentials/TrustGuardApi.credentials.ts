@@ -11,7 +11,7 @@ export class TrustGuardApi implements ICredentialType {
 
 	displayName = 'NeuralTrust TrustGuard API';
 
-	documentationUrl = 'https://docs.neuraltrust.ai';
+	documentationUrl = 'https://docs.neuraltrust.ai/integrations/n8n#2-create-the-credential';
 
 	icon: Icon = {
 		light: 'file:../nodes/TrustGuard/trustguard.svg',
