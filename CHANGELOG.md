@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-08
+
+### Changed
+
+- The error classes derive from n8n-workflow's `OperationalError` rather than
+  from a bare `Error`, and the conversion to `NodeApiError` or
+  `NodeOperationError` now lives in `errors.ts` beside them, keyed by an
+  explicit table. What leaves the node is unchanged: every error still reaches
+  n8n as one of those two classes, carrying the item index
+- A parameter that does not resolve is no longer reported as a transform
+  problem. `json.error` for an unresolved Text parameter changes from
+  `TrustGuard transform missing payload` to `The Text parameter did not resolve
+  to any text to evaluate`, and an unusable Messages parameter to `The Messages
+  parameter did not resolve to a usable chat messages array`. A workflow
+  branching on the old string needs updating
+- Parameter and credential placeholders lead with `e.g.`, and the two operation
+  actions drop their articles, per n8n's UX guidelines
+
+### Added
+
+- Every error carries a description. n8n shows it under the message and it names
+  the parameter or the credential field to change. Until now every error this
+  node raised carried none
+- The twenty-one checks that can refuse a rewritten payload each say what did
+  not line up, instead of all reading as the same five words
+
+### Fixed
+
+- A credential or parameter problem raised by n8n itself was re-presented as a
+  TrustGuard service failure. It now passes through as the `NodeOperationError`
+  n8n raised, with the item index stamped on it
+- The item error no longer discards the failure it was built from. The
+  classifying error is attached as its cause, where before the error was rebuilt
+  from its message alone
+
 ## [0.2.1] - 2026-09-07
 
 ### Fixed
@@ -59,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - HTTP Request templates for chat input, webhook 403 and output scan
 - Demo workflow pack under `examples/`
 
-[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.2.1...HEAD
+[Unreleased]: https://github.com/NeuralTrust/n8n-nodes-trustguard/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.3.0
 [0.2.1]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.2.1
 [0.2.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.2.0
 [0.1.0]: https://github.com/NeuralTrust/n8n-nodes-trustguard/releases/tag/0.1.0

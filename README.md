@@ -12,6 +12,8 @@ npm install @neuraltrust/n8n-nodes-trustguard
 
 Or Settings → Community Nodes. In queue mode, install it on every worker.
 
+Needs `n8n-workflow` 1.79 or newer, the release that added `OperationalError`. n8n's community-node lint pins `peerDependencies` to `*`, so the requirement cannot be declared in `package.json`.
+
 ## Credentials
 
 Create **NeuralTrust TrustGuard API**:
@@ -91,6 +93,8 @@ Retries: `{429, 502, 504}`, 3 attempts. Backoff honors `Retry-After` (capped at 
 | **Continue** | item goes to the **Block** output with `trustguard.status: "error"`, `trustguard.evaluated: false` and `json.error` set |
 
 No On Error setting can put an unevaluated item on the Allow output: failures are routed to Block, which n8n still relocates to the error output when that mode is selected.
+
+Every failure also carries a description saying which parameter or credential field to change. n8n shows it under the message in the error panel.
 
 `trustguard.evaluated === false` marks any item that reached a branch without being evaluated — set on both the fail-open Allow item and a Block-routed failure.
 

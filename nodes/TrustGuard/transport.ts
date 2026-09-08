@@ -4,6 +4,7 @@ import { sleep } from 'n8n-workflow';
 import {
 	TrustGuardAuthError,
 	TrustGuardEntitlementError,
+	TrustGuardError,
 	TrustGuardRequestError,
 	TrustGuardUnknownVerdictError,
 	TrustGuardUnreachableError,
@@ -201,14 +202,8 @@ function isTlsFailure(codes: string[], text: string): boolean {
 	);
 }
 
-export function mapTransportError(error: unknown): Error {
-	if (
-		error instanceof TrustGuardUnreachableError ||
-		error instanceof TrustGuardAuthError ||
-		error instanceof TrustGuardEntitlementError ||
-		error instanceof TrustGuardRequestError ||
-		error instanceof TrustGuardUnknownVerdictError
-	) {
+export function mapTransportError(error: unknown): TrustGuardError {
+	if (error instanceof TrustGuardError) {
 		return error;
 	}
 
@@ -218,7 +213,7 @@ export function mapTransportError(error: unknown): Error {
 	// Checked first: a certificate failure can read like a connection failure, and
 	// a possible MITM must never be downgraded to a transient blip.
 	if (isTlsFailure(codes, text)) {
-		return new TrustGuardRequestError();
+		return new TrustGuardRequestError(error);
 	}
 
 	if (
@@ -226,13 +221,13 @@ export function mapTransportError(error: unknown): Error {
 		UNREACHABLE_CODE_TEXT.some((code) => text.includes(code)) ||
 		UNREACHABLE_PHRASES.some((phrase) => text.includes(phrase))
 	) {
-		return new TrustGuardUnreachableError();
+		return new TrustGuardUnreachableError(error);
 	}
 
 	if (text.includes('json') || text.includes('decode') || text.includes('parse')) {
-		return new TrustGuardUnknownVerdictError();
+		return new TrustGuardUnknownVerdictError(error);
 	}
-	return new TrustGuardRequestError();
+	return new TrustGuardRequestError(error);
 }
 
 export async function evaluateWithSender(
