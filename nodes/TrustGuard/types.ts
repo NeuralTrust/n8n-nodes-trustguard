@@ -21,6 +21,47 @@ export const AUTH_FAILED = 'TrustGuard authentication failed';
 export const ENTITLEMENTS = 'TrustGuard entitlements unavailable';
 export const REQUEST_FAILED = 'TrustGuard request failed';
 
+// Parameter validation runs before anything is sent to TrustGuard, so neither
+// of these carries the service name: what needs changing is in the node, and a
+// "TrustGuard" prefix sends the user off to check a service that never saw the
+// item.
+export const TEXT_UNRESOLVED = 'The Text parameter did not resolve to any text to evaluate';
+export const MESSAGES_UNUSABLE =
+	'The Messages parameter did not resolve to a usable chat messages array';
+
+// The reasons payload.ts can refuse an item, split by who can act on them.
+// Closed unions so errors.ts can key a remedy table off them and the compiler
+// refuses a new reason nobody has written a remedy for.
+export type InputReason =
+	| 'text_required'
+	| 'messages_json'
+	| 'messages_required'
+	| 'message_shape'
+	| 'role_missing';
+
+export type TransformReason =
+	| 'missing_payload'
+	| 'message_count'
+	| 'input_span'
+	| 'message_shape'
+	| 'role_missing'
+	| 'role_mismatch'
+	| 'content_type'
+	| 'content_length'
+	| 'content_part_type'
+	| 'content_part_keys'
+	| 'content_part_text'
+	| 'not_text_coverable'
+	| 'tool_calls_missing'
+	| 'tool_call_count'
+	| 'tool_call_shape'
+	| 'tool_identity'
+	| 'tool_name_mismatch'
+	| 'tool_id_mismatch'
+	| 'tool_args_json'
+	| 'tool_args_type'
+	| 'empty_transform';
+
 export type TrustGuardStatus = (typeof STATUSES)[number];
 export type EvaluateDirection = 'input' | 'output';
 

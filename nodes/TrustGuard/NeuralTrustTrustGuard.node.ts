@@ -5,9 +5,9 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeConnectionTypes } from 'n8n-workflow';
 
-import { TrustGuardTransformError, TrustGuardUnreachableError } from './errors';
+import { toNodeError, TrustGuardUnreachableError } from './errors';
 import {
 	applyTransform,
 	buildEvaluateBody,
@@ -78,18 +78,6 @@ function attachMetadata(
 			executionId: ctx.getExecutionId(),
 		},
 	};
-}
-
-function toNodeError(
-	ctx: IExecuteFunctions,
-	error: unknown,
-	itemIndex: number,
-): NodeApiError | NodeOperationError {
-	if (error instanceof TrustGuardTransformError) {
-		return new NodeOperationError(ctx.getNode(), error, { itemIndex });
-	}
-	const message = error instanceof Error ? error.message : String(error);
-	return new NodeApiError(ctx.getNode(), { message }, { itemIndex });
 }
 
 async function evaluateItem(
@@ -212,7 +200,7 @@ export class NeuralTrustTrustGuard implements INodeType {
 		group: ['transform'],
 		version: [1],
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Evaluate LLM input or output with NeuralTrust TrustGuard (POST /v1/evaluate)',
+		description: 'Evaluate LLM input or output with NeuralTrust TrustGuard',
 		defaults: {
 			name: 'TrustGuard',
 		},
@@ -241,13 +229,13 @@ export class NeuralTrustTrustGuard implements INodeType {
 					{
 						name: 'Evaluate Input',
 						value: 'evaluateInput',
-						action: 'Evaluate input before the model',
+						action: 'Evaluate input before model',
 						description: 'Send direction=input. Place this node before the AI Agent.',
 					},
 					{
 						name: 'Evaluate Output',
 						value: 'evaluateOutput',
-						action: 'Evaluate output after the model',
+						action: 'Evaluate output after model',
 						description: 'Send direction=output. Place this node after the AI Agent.',
 					},
 				],
@@ -324,7 +312,7 @@ export class NeuralTrustTrustGuard implements INodeType {
 						name: 'collectorKey',
 						type: 'string',
 						default: '',
-						placeholder: 'tgcol_…',
+						placeholder: 'e.g. tgcol_abc123',
 						description: 'Override the collector key from credentials. Routing identifier, not a secret.',
 					},
 					{
@@ -346,7 +334,7 @@ export class NeuralTrustTrustGuard implements INodeType {
 						name: 'modelName',
 						type: 'string',
 						default: '',
-						placeholder: 'gpt-4o-mini',
+						placeholder: 'e.g. gpt-4o-mini',
 						description: 'Optional attributes.model.name used for gate matching',
 					},
 					{
@@ -354,7 +342,7 @@ export class NeuralTrustTrustGuard implements INodeType {
 						name: 'modelProvider',
 						type: 'string',
 						default: '',
-						placeholder: 'openai',
+						placeholder: 'e.g. openai',
 						description: 'Optional attributes.model.provider',
 					},
 					{
@@ -413,7 +401,7 @@ export class NeuralTrustTrustGuard implements INodeType {
 				const routed = await evaluateItem(this, item, itemIndex, options);
 				outputs[asTool ? OUTPUT_ALLOW : routed.index].push(routed.data);
 			} catch (error) {
-				const nodeError = toNodeError(this, error, itemIndex);
+				const nodeError = toNodeError(this.getNode(), error, itemIndex);
 
 				if (this.continueOnFail()) {
 					// continueOnFail() is true for BOTH continueRegularOutput and

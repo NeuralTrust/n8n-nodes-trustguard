@@ -1,10 +1,25 @@
-import { TrustGuardTransformError } from './errors';
-import type { ChatMessage, EvaluateBody, EvaluateDirection, JsonObject } from './types';
+import { TrustGuardInputError, TrustGuardTransformError } from './errors';
+import type {
+	ChatMessage,
+	EvaluateBody,
+	EvaluateDirection,
+	InputReason,
+	JsonObject,
+	TransformReason,
+} from './types';
 
 const TEXT_PART_KEYS = new Set(['type', 'text']);
 
-function reject(reason: string): never {
+function reject(reason: TransformReason): never {
 	throw new TrustGuardTransformError(reason);
+}
+
+// Separate from reject: these run before anything is sent, so what is wrong is a
+// parameter, not a transform. Routing them through TrustGuardTransformError told
+// a user whose Text expression came back empty that a "transform" was "missing
+// payload".
+function rejectInput(reason: InputReason): never {
+	throw new TrustGuardInputError(reason);
 }
 
 function parseJson(text: string): unknown {
@@ -60,7 +75,7 @@ export function requireText(value: unknown): string {
 	// be sent as an empty payload, scored `allow`, and routed to the Allow output
 	// while the real content sat unscanned on the item.
 	if (typeof value !== 'string' || !value.trim()) {
-		throw new TrustGuardTransformError('text_required');
+		rejectInput('text_required');
 	}
 	return value;
 }
@@ -73,19 +88,19 @@ export function normalizeMessages(value: unknown): ChatMessage[] {
 	if (typeof parsed === 'string') {
 		parsed = parseJson(parsed);
 		if (parsed === undefined) {
-			reject('messages_json');
+			rejectInput('messages_json');
 		}
 	}
 	if (!Array.isArray(parsed) || parsed.length === 0) {
-		throw new TrustGuardTransformError('messages_required');
+		rejectInput('messages_required');
 	}
 	return parsed.map((item) => {
 		if (!item || typeof item !== 'object') {
-			throw new TrustGuardTransformError('message_shape');
+			rejectInput('message_shape');
 		}
 		const role = (item as ChatMessage).role;
 		if (typeof role !== 'string' || !role) {
-			throw new TrustGuardTransformError('role_missing');
+			rejectInput('role_missing');
 		}
 		return { ...(item as ChatMessage) };
 	});

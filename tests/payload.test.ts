@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { TrustGuardTransformError } from '../nodes/TrustGuard/errors';
+import { TrustGuardInputError, TrustGuardTransformError } from '../nodes/TrustGuard/errors';
 import {
 	applyTransform,
 	buildEvaluateBody,
@@ -77,8 +77,25 @@ describe('text helpers', () => {
 	});
 
 	it('rejects a non-array or empty messages value', () => {
-		expect(() => normalizeMessages([])).toThrow(TrustGuardTransformError);
-		expect(() => normalizeMessages({})).toThrow(TrustGuardTransformError);
+		expect(() => normalizeMessages([])).toThrow(TrustGuardInputError);
+		expect(() => normalizeMessages({})).toThrow(TrustGuardInputError);
+	});
+
+	// An unusable parameter is not a transform failure. Before the split these
+	// all surfaced as `TrustGuard transform missing payload`.
+	it('names the reason on each rejected messages value', () => {
+		const reasonOf = (run: () => unknown) => {
+			try {
+				run();
+			} catch (error) {
+				return (error as TrustGuardInputError).reason;
+			}
+			return undefined;
+		};
+		expect(reasonOf(() => normalizeMessages('not json'))).toBe('messages_json');
+		expect(reasonOf(() => normalizeMessages([]))).toBe('messages_required');
+		expect(reasonOf(() => normalizeMessages([1]))).toBe('message_shape');
+		expect(reasonOf(() => normalizeMessages([{ content: 'x' }]))).toBe('role_missing');
 	});
 });
 
