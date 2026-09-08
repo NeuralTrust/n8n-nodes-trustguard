@@ -26,7 +26,7 @@ export class TrustGuardApi implements ICredentialType {
 			typeOptions: { password: true },
 			default: '',
 			required: true,
-			placeholder: 'tgk_…',
+			placeholder: 'e.g. tgk_abc123',
 			description: 'TrustGuard collector API key. Starts with tgk_.',
 		},
 		{
@@ -34,7 +34,7 @@ export class TrustGuardApi implements ICredentialType {
 			name: 'baseUrl',
 			type: 'string',
 			default: 'https://trustguard.neuraltrust.ai',
-			placeholder: 'https://trustguard.neuraltrust.ai',
+			placeholder: 'e.g. https://trustguard.neuraltrust.ai',
 			description: 'TrustGuard evaluate base URL. Override for a self-hosted TrustGuard.',
 		},
 		{
@@ -42,7 +42,7 @@ export class TrustGuardApi implements ICredentialType {
 			name: 'collectorKey',
 			type: 'string',
 			default: '',
-			placeholder: 'tgcol_…',
+			placeholder: 'e.g. tgcol_abc123',
 			description:
 				'Optional routing identifier. Not a secret. Omit when the API key is already bound to a collector.',
 		},
